@@ -1,0 +1,47 @@
+body {
+  font-family: sans-serif;
+  color: #333;
+}
+
+table.grid {
+  border-collapse: collapse;
+}
+
+table.grid td {
+  border:         1px solid black;
+  cursor:         pointer;
+  width:          1em;
+  height:         1em;
+  text-align:     center;
+  vertical-align: middle;
+  font:           bold 36px sans-serif
+}
+
+td.dark {
+  color: #333;
+}
+
+td.light {
+  color: #eee;
+}
+
+td.blue {
+  color: #06f;
+}
+
+td.green {
+  color: #393;
+}
+
+td.red {
+  color: #f00;
+}
+
+.noselect {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
