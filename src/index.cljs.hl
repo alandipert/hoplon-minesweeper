@@ -34,19 +34,28 @@
      :size        size
      :n-mines     n-mines}))
 
-(def   +size+    9)
-(def   +n-mines+ 10)
-(defc  game      (new-game +size+ +n-mines+))
-(defc= lost?     (not (empty? (intersection (:mines game) (:revealed game)))))
-(defc= won?      (= (:mines game) (:flagged game)))
-(defc= flagged   (intersection (:mines game) (:flagged game)))
-(defc= over?     (or lost? won?))
-(defc= playing?  (not over?))
-
 (defn mine?     [g point] (contains? (:mines g) point))
 (defn number    [g [x y]] (get-in g [:numberfield x y]))
 (defn flag?     [g point] (contains? (:flagged g) point))
 (defn revealed? [g point] (contains? (:revealed g) point))
+
+(def   +size+      9)
+(def   +axis+      (range +size+))
+(def   +n-mines+   10)
+(defc  game        (new-game +size+ +n-mines+))
+(defc= lost?       (not (empty? (intersection (:mines game) (:revealed game)))))
+(defc= won?        (= (:mines game) (:flagged game)))
+(defc= flagged     (intersection (:mines game) (:flagged game)))
+(defc= over?       (or lost? won?))
+(defc= playing?    (not over?))
+(defc= hide-point? (fn [point]
+                     (and playing?
+                          (not (revealed? game point))
+                          (not (flag? game point)))))
+(defc= label-point (fn [hidden-fn show-fn point]
+                     (if (hide-point? point)
+                       (hidden-fn game point)
+                       (show-fn game point))))
 
 (defn reveal! [point]
   (when @playing?
@@ -72,6 +81,8 @@
    :else (let [n (number g point)]
            {:label (str n) :class (number-color n)})))
 
+(defn format-hidden [g point] {:label "?" :class "light"})
+
 (defmethod do! :set-class
   [elem _ class]
   (doto (js/jQuery elem) .removeClass (.addClass class)))
@@ -84,15 +95,10 @@
     (title "Minesweeper"))
   (body
     (table :class "noselect grid"
-      (for [i (range +size+)]
+      (for [i +axis+]
         (tr
-          (for [j (range +size+) :let [point [i j]]]
-            (cell-let [hide? (and playing?
-                                  (not (revealed? game point))
-                                  (not (flag? game point)))
-                       place (if hide?
-                               {:label "?" :class "light"}
-                               (format game point))]
+          (for [j +axis+ :let [point [i j]]]
+            (cell-let [place (label-point format-hidden format point)]
               (td
                 :taphold   #(flag! point)
                 :tap       #(reveal! point)
