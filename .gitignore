@@ -2,3 +2,5 @@
 /resources/public
 /.nrepl-port
 /.repl-history
+/resources/public
+.DS_Store

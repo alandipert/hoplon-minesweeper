@@ -1,93 +1,114 @@
 (page "index.html"
-  (:require
-    [tailrecursion.hoplon.reload :refer [reload-all]]))
+  (:require [tailrecursion.hoplon.reload :refer [reload-all]]
+            [clojure.set                 :refer [intersection]]))
 
 (reload-all 0)
 
-(defn random-minefield [size n]
+(defn random-mines [size n]
   (loop [mines #{}]
     (if (< (count mines) n)
       (recur (conj mines [(rand-int size) (rand-int size)]))
-      (reduce #(assoc-in %1 %2 :mine) {} mines))))
+      mines)))
 
 (defn neighbors [[x y]]
   (for [dx [-1 0 1] dy (if (zero? dx) [-1 1] [-1 0 1])]
     [(+ dx x) (+ dy y)]))
 
-(defn mines-around [minefield point]
-  (->> (neighbors point)
-       (map (partial get-in minefield))
-       (keep #{:mine})
-       count))
+(defn mines-around [mines point]
+  (count (intersection mines (set (neighbors point)))))
 
-(def merge-fields (partial merge-with merge))
+(defn numberfield
+  [mines size]
+  (reduce (partial merge-with merge)
+          (for [x (range size), y (range size)
+                :when (not (contains? mines [x y]))]
+            {x {y (mines-around mines [x y])}})))
 
-(defn numberfield [minefield size]
-  (->> (for [x (range size), y (range size)
-             :when (not= (get-in minefield [x y]) :mine)]
-         {x {y (mines-around minefield [x y])}})
-       (reduce merge-fields)))
-
-(defn new-game [size n-mines]
-  (let [minefield (random-minefield size n-mines)]
-    {:minefield   minefield
-     :numberfield (numberfield minefield size)
+(defn new-game
+  [size n-mines]
+  (let [mines (random-mines size n-mines)]
+    {:mines       mines
+     :numberfield (numberfield mines size)
      :revealed    #{}
      :flagged     #{}
-     :over?       false}))
+     :size        size
+     :n-mines     n-mines}))
 
-(def game-size 9)
-(def n-mines   10)
-(def axis      (range game-size))
+(def   +size+    9)
+(def   +n-mines+ 10)
+(defc  game      (new-game +size+ +n-mines+))
+(defc= lost?     (not (empty? (intersection (:mines game) (:revealed game)))))
+(defc= won?      (= (:mines game) (:flagged game)))
+(defc= flagged   (intersection (:mines game) (:flagged game)))
+(defc= over?     (or lost? won?))
+(defc= playing?  (not over?))
 
-(defc  current-game  (new-game game-size n-mines))
-(defc= mines-numbers (merge-fields (:minefield current-game) (:numberfield current-game)))
-(defc= game-over?    (:over? current-game))
-(defc= view          (->> (for [x axis, y axis]
-                            (if (or game-over? (contains? (:revealed current-game) [x y]))
-                              [x y (get-in mines-numbers [x y])]
-                              [x y "?"]))
-                          (reduce (fn [m [x y v]] (assoc-in m [x y] v)) {})))
+(defn mine? [g point]
+  (contains? (:mines g) point))
 
-(defn reveal! [[x y :as point]]
-  (when-not @game-over?
-    (swap! current-game
-           #(if (= :mine (get-in % [:minefield x y]))
-              (assoc % :over? true)
-              (update-in % [:revealed] conj point)))))
+(defn number [g [x y]]
+  (get-in g [:numberfield x y]))
 
-(defn reset-game! []
-  (reset! current-game (new-game game-size n-mines)))
+(defn flag? [g point]
+  (contains? (:flagged g) point))
 
-(defmethod do! :set-class
-  [elem _ class]
-  (doto (js/jQuery elem) .removeClass (.addClass class)))
+(defn hidden? [g point]
+  (not (contains? (:revealed g) point)))
+
+(defn reveal! [point]
+  (when @playing?
+    (swap! game #(-> (update-in % [:revealed] conj point)
+                     (update-in [:flagged] disj point)))))
+
+(defn flag! [point]
+  (swap! game #(cond
+                (not (hidden? % point)) %
+                (flag? % point) (update-in % [:flagged] disj point)
+                :else (update-in % [:flagged] conj point))))
+
+(defn new! []
+  (reset! game (new-game +size+ +n-mines+)))
 
 (defn number-color [n]
   (cond (< n 2) "blue"
         (< n 3) "green"
         :else   "red"))
 
-(defn format [place]
-  (cond (number? place) {:label (str place) :class (number-color place)}
-        (= "?" place)   {:label "?" :class "light"}
-        (= :mine place) {:label "!" :class "red"}
-        :else           (throw (js/Error. (str "unrecognized value: " place)))))
+(defn format [g point]
+  (cond
+   (flag?  g point) {:label "⚑" :class "red"}
+   (number g point) (let [n (number g point)]
+                      {:label (str n)
+                       :class (number-color n)})
+   (mine?  g point) {:label "!" :class "red"}))
+
+(defmethod do! :set-class
+  [elem _ class]
+  (doto (js/jQuery elem) .removeClass (.addClass class)))
+
+(set! (.. js/jQuery -event -special -tap -emitTapOnTaphold) false)
+(set! (.. js/jQuery -event -special -tap -tapholdThreshold) 500)
 
 (html
   (head)
   (body
-    (table :class "grid"
-      (for [i axis]
+    (table :class "noselect grid"
+      (for [i (range +size+)]
         (tr
-          (for [j axis :let [point [i j]]]
-            (cell-let [place (format (get-in view [i j]))
-                       class (:class place)
-                       label (:label place)]
+          (for [j (range +size+) :let [point [i j]]]
+            (cell-let [hide? (and playing?
+                                  (hidden? game point)
+                                  (not (flag? game point)))
+                       place (if hide?
+                               {:label "?" :class "light"}
+                               (format game point))]
               (td
-                :click #(reveal! point)
-                :set-class (cell= (str "noselect " class))
-                (text "~{label}")))))))
-    (div :toggle game-over?
-      (h1 "Game Over")
-      (button :click #(reset-game!) "Reset"))))
+                :taphold   #(flag! point)
+                :tap       #(reveal! point)
+                :set-class (cell= (:class place))
+                (text "~{(:label place)}")))))))
+    (div :toggle over?
+      (h1 :toggle won? "You won!")
+      (h1 :toggle lost? "You lost :-(")
+      (p (text "You correctly identified ~{(count flagged)} mines."))
+      (button :click #(new!) "New Game"))))
