@@ -106,7 +106,7 @@
   (body
     (table
       :id "grid"
-      :class "noselect grid"
+      :class "noselect"
       (for [i +axis+]
         (tr
           (for [j +axis+ :let [point [i j]]]
