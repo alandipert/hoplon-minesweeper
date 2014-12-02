@@ -3,18 +3,21 @@ body {
   color: #333;
 }
 
-table.grid {
+#grid {
   border-collapse: collapse;
+  margin: 3em auto 1em auto;
 }
 
-table.grid td {
+#grid td {
   border:         1px solid black;
   cursor:         pointer;
   width:          1em;
   height:         1em;
   text-align:     center;
   vertical-align: middle;
-  font:           bold 36px sans-serif
+  font:           bold 36px sans-serif;
+  /* http://css-tricks.com/snippets/css/remove-gray-highlight-when-tapping-links-in-mobile-safari/ */
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
 }
 
 td.dark {
@@ -44,4 +47,13 @@ td.red {
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+}
+
+div#footer {
+  text-align: center;
+}
+
+span#face {
+  font-size: 2em;
+  cursor: pointer;
 }

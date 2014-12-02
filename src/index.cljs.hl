@@ -57,17 +57,27 @@
                        (hidden-fn game point)
                        (show-fn game point))))
 
-(defn reveal! [point]
-  (when @playing?
-    (swap! game #(-> (update-in % [:revealed] conj point)
-                     (update-in [:flagged] disj point)))))
+(defn reveal [g point]
+  (-> (update-in g [:revealed] conj point)
+      (update-in [:flagged] disj point)))
 
-(defn flag! [point]
+(defn flag [g point]
+  (cond
+   (revealed? g point) g
+   (flag? g point) (update-in g [:flagged] disj point)
+   :else (update-in g [:flagged] conj point)))
+
+(defn new! []
+  (reset! game (new-game +size+ +n-mines+)))
+
+(defn tap! [point]
+  (if @playing?
+    (swap! game reveal point)
+    (new!)))
+
+(defn taphold! [point]
   (when @playing?
-    (swap! game #(cond
-                  (revealed? % point) %
-                  (flag? % point) (update-in % [:flagged] disj point)
-                  :else (update-in % [:flagged] conj point)))))
+    (swap! game flag point)))
 
 (defn number-color [n]
   (cond (< n 2) "blue"
@@ -94,19 +104,22 @@
   (head
     (title "Minesweeper"))
   (body
-    (table :class "noselect grid"
+    (table
+      :id "grid"
+      :class "noselect grid"
       (for [i +axis+]
         (tr
           (for [j +axis+ :let [point [i j]]]
             (cell-let [place (label-point format-hidden format point)]
-              (td
-                :taphold   #(flag! point)
-                :tap       #(reveal! point)
-                :set-class (cell= (:class place))
-                (text "~{(:label place)}")))))))
-    (div :toggle over?
-      (h1 :toggle won? "You won!")
-      (h1 :toggle lost? "You lost :-(")
-      (p (text "You correctly identified ~{(count flagged)} mines.")))
+                      (td
+                        :taphold   #(taphold! point)
+                        :tap       #(tap! point)
+                        :set-class (cell= (:class place))
+                        (text "~{(:label place)}")))))))
     (div
-      (p (button :click #(reset! game (new-game +size+ +n-mines+)) "New Game")))))
+      :id "footer"
+      :toggle over?
+      (span
+        :id "face"
+        :tap #(new!)
+        (cell= (if won? "☺" "☹"))))))
