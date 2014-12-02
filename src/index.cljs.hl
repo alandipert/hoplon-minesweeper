@@ -43,17 +43,10 @@
 (defc= over?     (or lost? won?))
 (defc= playing?  (not over?))
 
-(defn mine? [g point]
-  (contains? (:mines g) point))
-
-(defn number [g [x y]]
-  (get-in g [:numberfield x y]))
-
-(defn flag? [g point]
-  (contains? (:flagged g) point))
-
-(defn hidden? [g point]
-  (not (contains? (:revealed g) point)))
+(defn mine?     [g point] (contains? (:mines g) point))
+(defn number    [g [x y]] (get-in g [:numberfield x y]))
+(defn flag?     [g point] (contains? (:flagged g) point))
+(defn revealed? [g point] (contains? (:revealed g) point))
 
 (defn reveal! [point]
   (when @playing?
@@ -61,13 +54,11 @@
                      (update-in [:flagged] disj point)))))
 
 (defn flag! [point]
-  (swap! game #(cond
-                (not (hidden? % point)) %
-                (flag? % point) (update-in % [:flagged] disj point)
-                :else (update-in % [:flagged] conj point))))
-
-(defn new! []
-  (reset! game (new-game +size+ +n-mines+)))
+  (when @playing?
+    (swap! game #(cond
+                  (revealed? % point) %
+                  (flag? % point) (update-in % [:flagged] disj point)
+                  :else (update-in % [:flagged] conj point)))))
 
 (defn number-color [n]
   (cond (< n 2) "blue"
@@ -76,11 +67,10 @@
 
 (defn format [g point]
   (cond
-   (flag?  g point) {:label "⚑" :class "red"}
-   (number g point) (let [n (number g point)]
-                      {:label (str n)
-                       :class (number-color n)})
-   (mine?  g point) {:label "!" :class "red"}))
+   (flag? g point) {:label "⚑" :class "red"}
+   (mine? g point) {:label "!" :class "red"}
+   :else (let [n (number g point)]
+           {:label (str n) :class (number-color n)})))
 
 (defmethod do! :set-class
   [elem _ class]
@@ -90,14 +80,15 @@
 (set! (.. js/jQuery -event -special -tap -tapholdThreshold) 500)
 
 (html
-  (head)
+  (head
+    (title "Minesweeper"))
   (body
     (table :class "noselect grid"
       (for [i (range +size+)]
         (tr
           (for [j (range +size+) :let [point [i j]]]
             (cell-let [hide? (and playing?
-                                  (hidden? game point)
+                                  (not (revealed? game point))
                                   (not (flag? game point)))
                        place (if hide?
                                {:label "?" :class "light"}
@@ -110,5 +101,6 @@
     (div :toggle over?
       (h1 :toggle won? "You won!")
       (h1 :toggle lost? "You lost :-(")
-      (p (text "You correctly identified ~{(count flagged)} mines."))
-      (button :click #(new!) "New Game"))))
+      (p (text "You correctly identified ~{(count flagged)} mines.")))
+    (div
+      (p (button :click #(reset! game (new-game +size+ +n-mines+)) "New Game")))))
