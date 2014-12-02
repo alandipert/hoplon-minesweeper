@@ -111,11 +111,11 @@
         (tr
           (for [j +axis+ :let [point [i j]]]
             (cell-let [place (label-point format-hidden format point)]
-                      (td
-                        :taphold   #(taphold! point)
-                        :tap       #(tap! point)
-                        :set-class (cell= (:class place))
-                        (text "~{(:label place)}")))))))
+              (td
+                :taphold   #(taphold! point)
+                :tap       #(tap! point)
+                :set-class (cell= (:class place))
+                (text "~{(:label place)}")))))))
     (div
       :id "footer"
       :toggle over?
