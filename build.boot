@@ -1,36 +1,35 @@
-#!/usr/bin/env boot
-
-#tailrecursion.boot.core/version "2.5.1"
-
 (set-env!
- :project      'playminesweeperonline.com
- :version      "0.1.0-SNAPSHOT"
- :dependencies '[[tailrecursion/boot.task   "2.2.4"]
-                 [tailrecursion/hoplon      "5.10.24"]
-                 [tailrecursion/boot.notify "2.0.0-SNAPSHOT"]]
- :out-path     "resources/public"
- :src-paths    #{"src"})
-
-;; Static resources (css, images, etc.):
-(add-sync! (get-env :out-path) #{"assets"})
+ :dependencies '[[adzerk/boot-cljs          "1.7.48-3"]
+                 [adzerk/boot-reload        "0.3.1"]
+                 [org.clojure/clojurescript "1.7.48"]
+                 [org.clojure/clojure       "1.7.0"]
+                 [hoplon/boot-hoplon        "0.1.5"]
+                 [hoplon                    "6.0.0-alpha9"]
+                 [pandeiro/boot-http        "0.6.3"]]
+ :resource-paths #{"assets"}
+ :source-paths #{"src"})
 
 (require
- '[tailrecursion.hoplon.boot      :refer :all]
- '[tailrecursion.boot.task.ring   :refer [dev-server]]
- '[tailrecursion.boot.task.notify :refer [hear]])
+ '[adzerk.boot-cljs   :refer [cljs]]
+ '[adzerk.boot-reload :refer [reload]]
+ '[pandeiro.boot-http :refer [serve]]
+ '[hoplon.boot-hoplon :refer [hoplon prerender]])
 
 (deftask dev
-  "Build playminesweeperonline.com for development."
+  "Build for local development."
   []
-  (comp (watch)
-        (hear)
-        (hoplon {:pretty-print true
-                 :prerender    false
-                 ;; :source-map   true
-                 })
-        (dev-server)))
+  (comp
+   (watch)
+   (speak :theme "pillsbury")
+   (hoplon)
+   (reload)
+   (cljs)
+   (serve)))
 
 (deftask prod
-  "Build playminesweeperonline.com for production."
+  "Build for production deployment."
   []
-  (hoplon {:optimizations :advanced}))
+  (comp
+   (hoplon)
+   (cljs :optimizations :advanced)
+   (prerender)))

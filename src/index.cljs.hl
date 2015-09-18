@@ -1,8 +1,5 @@
 (page "index.html"
-  (:require [tailrecursion.hoplon.reload :refer [reload-all]]
-            [clojure.set                 :refer [intersection]]))
-
-(reload-all 0)
+  (:require [clojure.set :refer [intersection]]))
 
 (defn random-mines [size n]
   (loop [mines #{}]
@@ -70,12 +67,12 @@
 (defn new! []
   (reset! game (new-game +size+ +n-mines+)))
 
-(defn tap! [point]
+(defn reveal! [point]
   (if @playing?
     (swap! game reveal point)
     (new!)))
 
-(defn taphold! [point]
+(defn flag! [point]
   (when @playing?
     (swap! game flag point)))
 
@@ -97,12 +94,14 @@
   [elem _ class]
   (doto (js/jQuery elem) .removeClass (.addClass class)))
 
-(set! (.. js/jQuery -event -special -tap -emitTapOnTaphold) false)
-(set! (.. js/jQuery -event -special -tap -tapholdThreshold) 500)
+(defmethod on! :context-menu
+  [elem _ f]
+  (.on (js/jQuery elem) "contextmenu" f))
 
 (html
   (head
-    (title "Minesweeper"))
+    (title "Minesweeper")
+    (link :rel "stylesheet" :type "text/css" :href "main.css"))
   (body
     (table
       :id "grid"
@@ -110,11 +109,15 @@
       (for [i +axis+]
         (tr
           (for [j +axis+ :let [point [i j]]]
-            (cell-let [place (label-point format-hidden format point)]
+            (cell-let [place (cell= (label-point format-hidden format point))]
               (td
-                :taphold   #(taphold! point)
-                :tap       #(tap! point)
-                :set-class (cell= (:class place))
+                :mousedown    #(let [left-click 1, right-click 3]
+                                 (condp = (.-which %)
+                                   left-click (reveal! point)
+                                   right-click (flag! point)))
+                :context-menu (constantly false)
+                :double-click #(flag! point)
+                :set-class    (cell= (:class place))
                 (text "~{(:label place)}")))))))
     (div
       :id "footer"
